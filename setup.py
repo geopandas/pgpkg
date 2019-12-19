@@ -12,7 +12,7 @@ setup(
     description="Faster I/O between pygeos and geopackages",
     long_description_content_type="text/markdown",
     long_description=open("README.md").read(),
-    install_requires=["pygeos", "pandas", "numpy"],
+    install_requires=["pygeos", "pandas", "numpy", "pyproj"],
     tests_require=["geopandas", "pytest", "pytest-cov", "pytest-benchmark"],
     include_package_data=True,
 )
