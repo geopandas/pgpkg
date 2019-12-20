@@ -187,9 +187,16 @@ class Geopackage(object):
         if is_point:
             header_bounds = b""
         else:
+            # NOTE: header bounds are [xmin, xmax, ymin, ymax]
+
+            # TODO: there is probably a better way to do this with fancy indexing
+            gpkg_bounds = np.concatenate(
+                (np.take(bounds, [0, 2], axis=1), np.take(bounds, [1, 3], axis=1)),
+                axis=1,
+            )
             # Use little byte order to match rest of header
             header_bounds = np.apply_along_axis(
-                np.ndarray.tobytes, arr=bounds.newbyteorder("L"), axis=1
+                np.ndarray.tobytes, arr=gpkg_bounds.newbyteorder("L"), axis=1
             )
 
         # pack WKB data with required header information for geopackage
