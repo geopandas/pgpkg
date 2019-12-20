@@ -37,6 +37,8 @@ class Geopackage(object):
         if not filename.endswith(".gpkg"):
             filename = "{}.gpkg".format(filename)
 
+        self._filename = filename
+
         self.mode = mode
         if mode not in ("r", "w", "r+"):
             raise ValueError("Mode must be r, w, or r+")
@@ -222,3 +224,31 @@ class Geopackage(object):
 
         self._cursor.close()
         self._db.close()
+
+        # Cleanup dangling WAL file
+        wal_file = "{}-wal".format(self._filename)
+        if os.path.exists(wal_file):
+            os.remove(wal_file)
+
+
+def to_gpkg(df, path, name=None, crs=None, index=True):
+    """Write dataframe into a geopackage at path.
+
+    Parameters
+    ----------
+    df : pandas DataFrame
+        contains pygeos geometries in "geometry"
+    path : str
+        output path
+    name : str or Path, optional (default: filename from path)
+        output layer name
+    crs : pyproj.CRS compatible input, optional
+        used to construct pyproj CRS.  Example: "EPSG:4326"
+    index : bool, optional (default: True)
+        If True, include the data frame index as a column in the output.
+    """
+    if not name:
+        name = Path(path).name.split(".")[0]
+
+    with Geopackage(path, "w") as gpkg:
+        gpkg.add_layer(df, name=name, crs=crs, index=index)
