@@ -1,3 +1,4 @@
+from pathlib import Path
 import os
 import sys
 import sqlite3
@@ -30,6 +31,8 @@ GP_HEADER_NOBOUNDS = b"\x47\x50\x00\x01"
 
 class Geopackage(object):
     def __init__(self, filename, mode="r"):
+        filename = str(filename)
+
         # 1.1.1.1.2: A GeoPackage SHALL have the file extension name ".gpkg".
         if not filename.endswith(".gpkg"):
             filename = "{}.gpkg".format(filename)
@@ -79,7 +82,6 @@ class Geopackage(object):
             raise IOError("geopackage is not open for writing data")
 
         df = df.copy()
-
         geom = df.geometry.values
 
         # Simplification 1: exclude empty geometries from here so we have a constant header
@@ -105,25 +107,38 @@ class Geopackage(object):
 
         is_point = geom_type in ("POINT", "MULTIPOINT")
 
-        # FIXME
-        srid = 4326  # does this indicate no srid?
+        if crs is not None:
+            crs = CRS(crs)
+            epsg = crs.to_epsg()
+            if epsg == 4326:
+                srid = 4326
+                # already in the database
+            else:
+                if crs.to_authority():
+                    authority, srid = crs.to_authority()
+                    srid = int(srid)
+                else:
+                    authority = "unknown"
+                    srid = 1  # TODO: need to increment if already others in this GPGK
+
+                ### Write to SRID table
+                self._cursor.execute(
+                    """
+                    INSERT OR REPLACE INTO gpkg_spatial_ref_sys
+                    (srs_name, srs_id, organization, organization_coordsys_id, definition)
+                    values
+                    (?, ?, ?, ?, ?)
+                """,
+                    (crs.name, srid, authority, srid, crs.to_wkt()),
+                )
+        else:
+            # not defined
+            srid = 0
 
         bounds = pg.bounds(geom).astype("float64")
         pivot = bounds.T
         xmin, ymin = pivot[:2].min(axis=1)
         xmax, ymax = pivot[2:].max(axis=1)
-
-        ### Write to SRID table
-        # TODO: if defined and not 4326
-        # self._cursor.execute(
-        #     """
-        #     INSERT OR REPLACE INTO gpkg_spatial_ref_sys
-        #     (srs_name, srs_id, organization, organization_coordsys_id, definition)
-        #     values
-        #     ()
-        # """,
-        #     (),
-        # )
 
         ### Write to gpkg_contents table
         # NOTE: "features" is hard-coded for feature data
@@ -180,15 +195,17 @@ class Geopackage(object):
         # pack WKB data with required header information for geopackage
         # FIXME: numpy removes zero padded bytes when we join bytestrings - UGH!
         # gpkg_binary = (GP_HEADER + header_srid) + pg.to_wkb(geom)
-        header = np.array(bytearray(header_prefix + header_srid + header_bounds))
+        header = np.array(bytearray(header_prefix + header_srid))
 
         # This is a total hack to keep numpy from trimming zero padded bytes from header_srid
         def raw_encode(w):
-            return np.concatenate((header, np.fromstring(w, dtype="uint8"))).tostring()
+            return np.concatenate((header, np.frombuffer(w, dtype="uint8"))).tostring()
 
         encode = np.vectorize(raw_encode, otypes=["O"])
 
-        df["geometry"] = encode(pg.to_wkb(geom))
+        data = header_bounds + pg.to_wkb(geom)
+
+        df["geometry"] = encode(data)
         df.to_sql(name=name, con=self._db)
 
     def close(self):
