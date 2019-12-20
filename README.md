@@ -17,6 +17,8 @@ This is a shim until `pygeos` is fully integrated into `geopandas`.
 
 Not available on PyPi yet, so clone the repository in Github and `python setup.py develop`.
 
+This requires the latest available version for `pygeos`, right now from the `master` branch of that repository.
+
 ## Usage
 
 To create a geopackage, given a pandas DataFrame `df` containing `pygeos` geometry objects in the 'geometry' column:
