@@ -22,6 +22,17 @@ def test_points_write(tmpdir, points_wgs84):
     # TODO: verify written properly
 
 
+def test_points_write_no_index(tmpdir, points_wgs84):
+    filename = tmpdir / "points_wgs84.gpkg"
+
+    with Geopackage(filename, "w") as out:
+        out.add_layer(points_wgs84, "points_wgs84", crs="EPSG:4326", index=False)
+
+    assert os.path.exists(filename)
+
+    # TODO: verify written properly
+
+
 def test_lines_write(tmpdir, lines_wgs84):
     filename = tmpdir / "lines_wgs84.gpkg"
 

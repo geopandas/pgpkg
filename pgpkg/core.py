@@ -77,7 +77,7 @@ class Geopackage(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
-    def add_layer(self, df, name, crs=None, description=""):
+    def add_layer(self, df, name, crs=None, description="", index=True):
         if self.mode == "r":
             raise IOError("geopackage is not open for writing data")
 
@@ -206,7 +206,7 @@ class Geopackage(object):
         data = header_bounds + pg.to_wkb(geom)
 
         df["geometry"] = encode(data)
-        df.to_sql(name=name, con=self._db)
+        df.to_sql(name=name, con=self._db, index=index)
 
     def close(self):
         """
